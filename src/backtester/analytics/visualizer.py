@@ -55,12 +55,12 @@ class Visualizer:
         plt.savefig(save_path)
         plt.close()
 
-    # 3. Monthly Return Heatmap (기간이 길어지면 높이 자동 조절)
+    # 3. Monthly Return Heatmap 
     def plot_monthly_heatmap(self, save_path='3_monthly_heatmap.png'):
         _, m_df = self._get_monthly_df()
         pivot = m_df.pivot(index='year', columns='month', values='daily_ret')
         
-        h = max(6, len(pivot) * 0.5) # 연도 수에 따라 높이 조절
+        h = max(6, len(pivot) * 0.5) 
         plt.figure(figsize=(12, h))
         sns.heatmap(pivot * 100, annot=True, fmt=".1f", cmap='RdYlGn', center=0, cbar_kws={'label': 'Return (%)'})
         plt.title('Monthly Returns Heatmap (%)', fontsize=14, fontweight='bold')
