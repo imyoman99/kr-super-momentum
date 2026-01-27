@@ -24,7 +24,7 @@ class Visualizer:
 
     def _get_monthly_df(self):
         """월별 수익률 데이터프레임 생성 (내부용)"""
-        monthly_ret = self.df['daily_ret'].resample('M').apply(lambda x: (1 + x).prod() - 1)
+        monthly_ret = self.df['daily_ret'].resample('ME').apply(lambda x: (1 + x).prod() - 1)
         m_df = monthly_ret.to_frame()
         m_df['year'] = m_df.index.year
         m_df['month'] = m_df.index.month
@@ -85,7 +85,7 @@ class Visualizer:
 
     # 5. Yearly Return
     def plot_yearly_return(self, save_path='5_yearly_return.png'):
-        y_ret = self.df['daily_ret'].resample('Y').apply(lambda x: (1 + x).prod() - 1) * 100
+        y_ret = self.df['daily_ret'].resample('YE').apply(lambda x: (1 + x).prod() - 1) * 100
         y_ret.index = y_ret.index.year
         
         plt.figure(figsize=(10, 6))
@@ -117,3 +117,28 @@ class Visualizer:
         plt.tight_layout()
         plt.savefig(save_path)
         plt.close()
+
+# --- 테스트 실행부 ---
+if __name__ == "__main__":
+    # 1. 데이터 로드
+    try:
+        df = pd.read_csv('backtest_result.csv', index_col=0, parse_dates=True)
+        
+        # 2. 시각화 객체 생성
+        vis = Visualizer(df, price_col='equity')
+        
+        # 3. 주요 차트 생성 테스트
+        print("차트 생성 중...")
+        vis.plot_equity_curve('test_equity.png')        # 자산 곡선
+        vis.plot_drawdown('test_drawdown.png')          # 낙폭
+        vis.plot_monthly_heatmap('test_heatmap.png')    # 월별 히트맵
+        vis.plot_seasonality('test_seasonality.png')    # 계절성 평균
+        vis.plot_yearly_return('test_yearly.png')       # 연도별 수익률
+        vis.plot_yearly_monthly_bar('test_yearly_monthly.png') # 연도별 월간 비교
+        vis.plot_return_dist('test_return_dist.png')    # 일별 수익률 분포
+        print("모든 테스트 차트가 현재 폴더에 저장되었습니다.")
+        
+    except FileNotFoundError:
+        print("Error: 'backtest_result.csv' 파일이 없습니다. 경로를 확인해주세요.")
+    except Exception as e:
+        print(f"오류 발생: {e}")
