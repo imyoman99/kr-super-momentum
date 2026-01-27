@@ -49,15 +49,19 @@
 
 ```text
 .
-├── cli/            # 실행 진입점 (데이터 수집, 백테스트 실행)
-├── scripts/        # 데이터 다운로드 및 전처리 스크립트
+├── cli/            # CLI 실행 진입점 (명령줄 인터페이스)
+├── scripts/        # 실험, 분석, 자동화 등 보조 스크립트
 ├── src/
-│   ├── api/        # 증권사 API 연동
-│   ├── backtester/ # 백테스팅 엔진 및 전략 로직
-│   ├── indicators/ # 기술적 지표 모듈
-│   ├── fundamental/# 기본적 분석 및 필터
-│   ├── utils/      # 공용 유틸리티
-├── config/         # 전략/모멘텀/리스크 설정 파일
+│   ├── api/            # 증권사/데이터 API 연동 모듈
+│   ├── backtester/     # 백테스팅 엔진 및 전략 구현
+│   │   ├── momentum/   # 모멘텀 전략 관련 코드
+│   │   ├── risk/       # 리스크 관리 모듈
+│   │   └── strategy/   # 전략별 로직 분리
+│   ├── config/         # 전략/모멘텀/리스크 설정 파일
+│   ├── downloader/     # 데이터 수집 모듈
+│   ├── fundamental/    # 펀더멘털 분석 및 필터
+│   ├── indicators/     # 기술적 지표 모듈
+│   └── utils/          # 공용 유틸리티 함수
 ├── tests/          # 테스트 코드
 └── README.md
 ```
