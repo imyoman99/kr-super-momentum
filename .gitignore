@@ -210,3 +210,13 @@ data/**
 outputs/**
 results/**
 logs/**
+*.csv
+*.parquet
+*.xlsx
+*.json
+*.db
+*.log
+*.png
+*.jpg
+*.jpeg
+*.gif
