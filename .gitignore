@@ -220,3 +220,4 @@ logs/**
 *.jpg
 *.jpeg
 *.gif
+token_*.json
