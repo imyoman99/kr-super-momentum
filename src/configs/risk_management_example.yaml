@@ -1,0 +1,37 @@
+risk_management:
+
+  # === 포지션 제약 ===
+  position_limits:
+    max_open_positions: 4
+
+  # === 포지션 사이징 ===
+  position_sizing:
+    method: "fixed_equity_ratio"   # fixed_equity_ratio | fixed_amount
+    equity_ratio: 0.25             # 계좌의 25%씩
+    round_lot: true                # 1주 단위 반올림
+
+  # === 청산 규칙 ===
+  exit_rules:
+    stop_loss:
+      enabled: true
+      method: "atr"                # atr | percent
+      atr_period: 14
+      atr_multiplier: 2.5
+      fixed_stop_pct: null
+
+    trailing_stop:
+      enabled: true
+      method: "ma"                 # ma | atr | percent
+      ma_period: 50
+      atr_multiplier: 2.0
+
+  # === 거래 비용 ===
+  execution_costs:
+    commission:
+      type: "percentage"
+      value: 0.00015               # 0.015%
+
+    slippage:
+      enabled: true
+      method: "fixed_pct"
+      value: 0.001                 # 0.1%
