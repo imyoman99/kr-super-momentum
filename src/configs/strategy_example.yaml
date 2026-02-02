@@ -1,0 +1,54 @@
+entry:
+  # === 이동평균 기반 구조 ===
+  moving_average:
+    price_above_mas:
+      enabled: true
+      mas: [50, 150, 200]
+
+    ma_alignment:
+      enabled: true
+      order: [50, 150, 200]
+
+    ma_trend:
+      ma200:
+        enabled: true
+        lookback_days: 20   # check_200ma_up
+      ma150:
+        enabled: true
+        lookback_days: 10   # check_150ma_up
+      ma50:
+        enabled: true
+        lookback_days: 5    # check_50ma_up
+
+    price_above_short_ma:
+      enabled: true
+      ma: 20               # check_price_above_10ma (MA20 사용)
+
+  # === 52주 가격 위치 ===
+  price_range_52w:
+    within_high:
+      enabled: true
+      max_distance_pct: 0.25   # 25% 이내
+
+    above_low:
+      enabled: true
+      min_distance_pct: 0.30   # 30% 이상 상승
+
+  # === 거래량 조건 ===
+  volume:
+    spike:
+      enabled: true
+      lookback_days: 10        # 최근 10일 중 최대 거래량
+
+  # === VCP (Volatility Contraction Pattern) ===
+  vcp:
+    enabled: true
+
+    volatility:
+      method: "atr"            # atr | std
+      lookback_days: 10
+      compare_to_prev_days: 10
+
+    volume:
+      lookback_days: 10
+      compare_to_prev_days: 10
