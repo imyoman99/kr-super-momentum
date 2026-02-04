@@ -8,7 +8,7 @@ from pathlib import Path
 # 1. 경로 및 환경 설정
 # =========================================================
 # 백테스터 엔진 및 결과 데이터가 위치한 기본 디렉토리
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 # 백테스팅 실행 결과 파일 경로 (입력 데이터)
 RESULT_PATH = BASE_DIR / "strategies" / "Asset_List_Final.csv"

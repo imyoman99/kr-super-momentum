@@ -42,7 +42,7 @@ CONFIG = {
 # ---------------------------------------------------------
 # 데이터 경로 및 출력 설정
 # ---------------------------------------------------------
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 UNIVERSE_PATH = BASE_DIR / "strategies" / "intersection_80.csv"   # RS 점수 포함된 종목 리스트
 PARQUET_DIR = BASE_DIR / "20160101_20251231_parquet"              # 개별 종목 시세 데이터 (OHLCV)
 OUTPUT_PATH = BASE_DIR / "strategies" / "Asset_List_Final.csv"    # 최종 자산 변동 기록 파일
