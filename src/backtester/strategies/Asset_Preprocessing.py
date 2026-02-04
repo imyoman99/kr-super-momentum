@@ -14,8 +14,8 @@ from minervini_filter import check_all_minervini_filters, load_from_parquet
 CONFIG = {
     # 1. 투자 자본 및 포트폴리오 구성
     'INITIAL_CASH': 100_000_000,    # 초기 자본금 (원)
-    'MAX_SLOTS': 4,                 # 최대 보유 종목 수 (집중 투자 원칙)
-    'MAX_POS_WEIGHT': 0.25,         # 종목당 최대 진입 비중 (자산의 25%)
+    'MAX_SLOTS': 5,                 # 최대 보유 종목 수 (집중 투자 원칙)
+    'MAX_POS_WEIGHT': 0.2,         # 종목당 최대 진입 비중 (자산의 25%)
 
     # 2. 수비적 청산 (Defensive Exit) - 자본 보호 및 수익 보존
     'STOP_LOSS_PCT': 0.07,          # 초기 손절 폭 (매수가 대비 -7%)
@@ -24,14 +24,14 @@ CONFIG = {
     'BACKSTOP_2_LOCK_PCT': 0.10,    # 2단계 백스탑: 상향 시 확보할 최소 이익 수준 (매수가 대비 +10%)
 
     # 3. 공격적 청산 (Offensive Exit) - 오버슈팅 대응 및 수익 실현
-    'PARTIAL_EXIT_TRIGGER': 0.20,   # 부분 익절 수익률 (20% 도달 시 보유량 일부 매도)
-    'PARTIAL_EXIT_RATIO': 0.5,      # 부분 익절 비중 (보유 수량의 50%)
+    'PARTIAL_EXIT_TRIGGER': 0.25,   # 부분 익절 수익률 (20% 도달 시 보유량 일부 매도)
+    'PARTIAL_EXIT_RATIO': 0.3,      # 부분 익절 비중 (보유 수량의 50%)
     'CLIMAX_RUN_DAYS': 10,          # 클라이맥스 런 감지 기간 (매수 후 10일 이내)
     'CLIMAX_RUN_TRIGGER': 0.40,     # 클라이맥스 런 폭등 수익률 (40% 이상 폭등 시 전량 매도)
 
     # 4. 시간 및 기술적 청산 (Efficiency) - 기회비용 및 추세 관리
-    'TIME_STOP_DAYS': 10,           # 타임 스탑 기준일 (매수 후 10일 대기)
-    'TIME_STOP_MIN_RET': 0.01,      # 타임 스탑 기준 수익률 (10일간 1% 미만 수익 시 교체)
+    'TIME_STOP_DAYS': 20,           # 타임 스탑 기준일 (매수 후 10일 대기)10
+    'TIME_STOP_MIN_RET': 0.00,      # 타임 스탑 기준 수익률 (10일간 1% 미만 수익 시 교체)0.01
     'TECH_EXIT_MA': 'MA50',         # 추세 이탈 기준 이동평균선 (기본 50일선)
 
     # 5. 시뮬레이션 기간 설정
@@ -42,9 +42,9 @@ CONFIG = {
 # ---------------------------------------------------------
 # 데이터 경로 및 출력 설정
 # ---------------------------------------------------------
-BASE_DIR = Path(__file__).resolve().parent.parent
-UNIVERSE_PATH = BASE_DIR / "strategies" / "intersection_80.csv"   # RS 점수 포함된 종목 리스트
-PARQUET_DIR = BASE_DIR / "20160101_20251231_parquet"              # 개별 종목 시세 데이터 (OHLCV)
+BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+UNIVERSE_PATH = BASE_DIR / "data" / "intersection_80.csv"   # RS 점수 포함된 종목 리스트
+PARQUET_DIR = BASE_DIR / "data" / "20160101_20251231_parquet"              # 개별 종목 시세 데이터 (OHLCV)
 OUTPUT_PATH = BASE_DIR / "strategies" / "Asset_List_Final.csv"    # 최종 자산 변동 기록 파일
 
 def run_backtest():

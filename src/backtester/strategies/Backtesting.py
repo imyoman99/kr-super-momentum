@@ -2,7 +2,12 @@ import pandas as pd
 import sys
 import os
 import shutil
+import json
+import datetime
+import uuid
 from pathlib import Path
+from Asset_Preprocessing import CONFIG
+from minervini_filter import MINERVINI_CONFIG
 
 # =========================================================
 # 1. 경로 및 환경 설정
@@ -17,7 +22,7 @@ RESULT_PATH = BASE_DIR / "strategies" / "Asset_List_Final.csv"
 ANALYTICS_DIR = BASE_DIR / "analytics"
 
 # 분석 결과물(차트, 리포트)을 순차적으로 저장할 루트 폴더
-RESULTS_BASE_DIR = BASE_DIR / "results"
+RESULTS_BASE_DIR = BASE_DIR.parent.parent / "results"
 
 # 외부 분석 모듈 참조를 위한 시스템 경로 추가
 sys.path.append(str(ANALYTICS_DIR))
@@ -33,24 +38,28 @@ except ImportError:
 
 def get_next_test_dir(base_path):
     """
-    기존 결과 폴더들을 조사하여 중복되지 않는 다음 번호의 폴더명을 생성합니다.
-    예: Test 1, Test 2가 존재하면 'Test 3' 폴더를 생성하고 경로를 반환합니다.
-    
-    매개변수:
-    - base_path: 결과 폴더들이 생성될 루트 경로
-    
-    반환값:
-    - new_dir: 새로 생성된 테스트 폴더의 Path 객체
+    날짜와 랜덤 해시를 조합하여 고유한 결과 폴더명을 생성합니다.
+    예: 20260204_a9f3c2
     """
     if not base_path.exists():
         base_path.mkdir(parents=True)
     
-    i = 1
-    while (base_path / f"Test {i}").exists():
-        i += 1
+    # 1. 현재 날짜 (YYYYMMDD)
+    date_str = datetime.datetime.now().strftime('%Y%m%d')
     
-    new_dir = base_path / f"Test {i}"
-    new_dir.mkdir()
+    # 2. 랜덤 해시 생성 (6자리)
+    # uuid4().hex는 32자리 무작위 문자열을 생성하며, 그중 앞 6자리만 사용합니다.
+    random_hash = uuid.uuid4().hex[:6]
+    
+    folder_name = f"{date_str}_{random_hash}"
+    new_dir = base_path / folder_name
+    
+    # 3. 만에 하나 폴더가 이미 존재할 경우를 대비한 안전장치
+    while new_dir.exists():
+        random_hash = uuid.uuid4().hex[:6]
+        new_dir = base_path / f"{date_str}_{random_hash}"
+        
+    new_dir.mkdir(parents=True, exist_ok=True)
     return new_dir
 
 def main():
@@ -129,6 +138,16 @@ def main():
                 vis.plot_trade_analysis(ticker, entry_date, df_ticker, str(save_name))
 
     print("[SUCCESS] 매매 사례 분석 차트가 저장되었습니다.")
+
+    configs_to_save = {
+        "BACKTEST_CONFIG": CONFIG,
+        "MINERVINI_FILTER_CONFIG": MINERVINI_CONFIG
+    }
+    
+    with open(save_dir / "used_configs.json", "w", encoding="utf-8") as f:
+        json.dump(configs_to_save, f, indent=4, ensure_ascii=False)
+    print(f"[INFO] 설정값 저장 완료: used_configs.json")
+
     print(f"\n[FINISH] 모든 데이터 분석 절차가 완료되었습니다.")
     print(f"[PATH] 결과물 확인: {save_dir}")
 
