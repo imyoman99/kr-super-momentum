@@ -189,7 +189,6 @@ def check_all_minervini_filters(code, date, data_dir='./data/'):
 
     # 분석 시점(date)까지의 데이터로 제한
     df_slice = df.loc[:date]
-    # 장기 이평선 계산이 불가능한 초반 데이터는 제외
     if df_slice.empty or pd.isna(df_slice['MA200'].iloc[-1]):
         return False
     

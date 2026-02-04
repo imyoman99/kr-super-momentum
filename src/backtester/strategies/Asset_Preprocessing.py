@@ -126,7 +126,7 @@ def run_backtest():
                 p_ratio = CONFIG['PARTIAL_EXIT_RATIO']
                 realized_ret = (CONFIG['PARTIAL_EXIT_TRIGGER'] * p_ratio + curr_ret * (1 - p_ratio)) if info['half_sold'] else curr_ret
                 
-                trade_log.append({'Ticker': ticker, 'Profit': realized_ret, 'Reason': sell_reason})
+                trade_log.append({'Ticker': ticker, 'Profit': realized_ret, 'Reason': sell_reason, 'Entry_Date': info['entry_date']})
                 sell_reasons[sell_reason] = sell_reasons.get(sell_reason, 0) + 1
                 
                 cash += info['shares'] * curr_price # 전량 매도 및 현금화
@@ -239,6 +239,9 @@ def run_backtest():
     for reason, count in sell_reasons.items():
         print(f"   - {reason}: {count}회")
     print("="*50)
+    # 종료된 매매 내역을 별도 CSV로 저장
+    trade_log_df = pd.DataFrame(trade_log)
+    trade_log_df.to_csv(BASE_DIR / "strategies" / "Trade_Log.csv", index=False)
 
 if __name__ == "__main__":
     run_backtest()

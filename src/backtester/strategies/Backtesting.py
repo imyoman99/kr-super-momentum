@@ -26,6 +26,7 @@ sys.path.append(str(ANALYTICS_DIR))
 try:
     from performance import PerformanceAnalyzer
     from visualizer import Visualizer
+    from minervini_filter import load_from_parquet
 except ImportError:
     print("[ERROR] analytics 폴더 내 performance.py 또는 visualizer.py를 찾을 수 없습니다.")
     sys.exit()
@@ -107,6 +108,27 @@ def main():
         # Visualizer 클래스 내 일부 함수가 구현되지 않았거나 데이터 부족 시 오류 예외 처리
         print(f"[WARNING] 시각화 과정 중 일부 항목에서 오류가 발생했습니다: {e}")
 
+    # Backtesting.py 내 main() 함수 중간에 추가
+
+    print("\n[INFO] 주요 매매 사례 분석 차트 생성 중...")
+    trade_log_path = BASE_DIR / "strategies" / "Trade_Log.csv"
+    if trade_log_path.exists():
+        trades = pd.read_csv(trade_log_path)
+        # 수익률 높은 순으로 상위 3개 추출
+        top_trades = trades.sort_values('Profit', ascending=False).head(3)
+        
+        for idx, row in top_trades.iterrows():
+            ticker = row['Ticker']
+            entry_date = pd.to_datetime(row.get('Entry_Date')) # 매수날짜가 저장되어 있다고 가정
+            
+            # 개별 종목 데이터 로드 (minervini_filter의 함수 재사용)
+            df_ticker = load_from_parquet(ticker, str(BASE_DIR / "20160101_20251231_parquet") + "\\")
+            
+            if df_ticker is not None:
+                save_name = save_dir / f"analysis_{ticker}_{idx}.png"
+                vis.plot_trade_analysis(ticker, entry_date, df_ticker, str(save_name))
+
+    print("[SUCCESS] 매매 사례 분석 차트가 저장되었습니다.")
     print(f"\n[FINISH] 모든 데이터 분석 절차가 완료되었습니다.")
     print(f"[PATH] 결과물 확인: {save_dir}")
 

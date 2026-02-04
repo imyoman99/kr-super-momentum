@@ -118,6 +118,68 @@ class Visualizer:
         plt.savefig(save_path)
         plt.close()
 
+# visualizer.py 내 Visualizer 클래스 안에 추가
+
+    def plot_trade_analysis(self, ticker, entry_date, df_ticker, save_path):
+        """
+        개별 종목의 진입 시점과 기술적 지표(이평선, 거래량 수축)를 시각화합니다.
+        :param ticker: 종목명 또는 코드
+        :param entry_date: 매수일 (pd.Timestamp)
+        :param df_ticker: 해당 종목의 전체 시세 데이터프레임 (MA, Volume 포함)
+        :param save_path: 저장 경로
+        """
+        # 진입일 기준 전후 60일 정도의 데이터만 보기 좋게 슬라이싱
+        start_date = entry_date - pd.Timedelta(days=60)
+        end_date = entry_date + pd.Timedelta(days=30)
+        df = df_ticker.loc[start_date:end_date].copy()
+
+        if df.empty:
+            return
+
+        # 차트 생성 (가격/이평선 섹션 + 거래량 섹션)
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(13, 8), sharex=True, 
+                                       gridspec_kw={'height_ratios': [3, 1]})
+
+        # --- 상단: 가격 및 이동평균선 ---
+        ax1.plot(df.index, df['Close'], color='black', lw=1.5, label='Close')
+        if 'MA50' in df.columns: ax1.plot(df.index, df['MA50'], label='MA50', alpha=0.8)
+        if 'MA150' in df.columns: ax1.plot(df.index, df['MA150'], label='MA150', alpha=0.8)
+        if 'MA200' in df.columns: ax1.plot(df.index, df['MA200'], label='MA200', linestyle='--', alpha=0.8)
+        
+        # 매수 지점 표시 (화살표)
+        if entry_date in df.index:
+            ax1.annotate('BUY ENTRY', xy=(entry_date, df.loc[entry_date, 'Close']),
+                         xytext=(entry_date, df.loc[entry_date, 'Close'] * 0.85),
+                         arrowprops=dict(facecolor='green', shrink=0.05, width=2),
+                         fontsize=10, fontweight='bold', color='green', ha='center')
+        
+        ax1.set_title(f"Trade Analysis: {ticker} (Entry: {entry_date.date()})", fontsize=14, fontweight='bold')
+        ax1.legend(loc='upper left')
+
+        # --- 하단: 거래량 및 수축(Contraction) 확인 ---
+        colors = ['red' if df.iloc[i]['Close'] > df.iloc[i-1]['Close'] else 'blue' 
+                  for i in range(1, len(df))]
+        colors.insert(0, 'gray') # 첫날 색상
+        
+        ax2.bar(df.index, df['Volume'], color=colors, alpha=0.4)
+        
+        # 거래량 20일 이평선 (수축 판단 기준선)
+        vol_ma = df['Volume'].rolling(window=20).mean()
+        ax2.plot(df.index, vol_ma, color='purple', lw=1, label='Vol MA20', linestyle=':')
+        
+        # [작성자 요청 반영] 거래량 수축 구간 강조 (최근 10일 평균 < 이전 10일 평균 조건 시각화)
+        # 여기서는 단순히 평균 거래량보다 낮은 날들을 시각적으로 강조
+        ax2.fill_between(df.index, 0, df['Volume'].max(), 
+                         where=(df['Volume'] < vol_ma * 0.7), 
+                         color='yellow', alpha=0.2, label='Vol Contraction Area')
+
+        ax2.set_ylabel("Volume")
+        ax2.legend(loc='upper left')
+
+        plt.tight_layout()
+        plt.savefig(save_path)
+        plt.close()
+    
 # --- 테스트 실행부 ---
 if __name__ == "__main__":
     # 1. 데이터 로드
