@@ -110,8 +110,7 @@ def main():
         vis.plot_monthly_heatmap(str(save_dir / "3_monthly_heatmap.png")) # 월별 수익률 히트맵
         vis.plot_seasonality(str(save_dir / "4_seasonality.png"))         # 월별 평균 수익률(계절성)
         vis.plot_yearly_return(str(save_dir / "5_yearly_return.png"))     # 연도별 수익률 요약
-        vis.plot_yearly_monthly_bar(str(save_dir / "6_yearly_monthly_bar.png")) # 연도별 월간 비교 바 차트
-        vis.plot_return_dist(str(save_dir / "7_return_dist.png"))         # 일일 수익률 분포도
+        vis.plot_return_dist(str(save_dir / "6_return_dist.png"))         # 일일 수익률 분포도
         print("[SUCCESS] 모든 시각화 차트가 폴더 내 저장되었습니다.")
     except Exception as e:
         # Visualizer 클래스 내 일부 함수가 구현되지 않았거나 데이터 부족 시 오류 예외 처리
