@@ -23,7 +23,7 @@ CONFIG = {
     'TIME_STOP_MIN_RET': 0.01,      # 시간 제한 내 최소 수익률
     'TECH_EXIT_MA': 'MA20',         # 추세 이탈 기준 이평선
 
-    'COST_RATE': 0.0030,            # 거래 비용 비율 (0.3%)
+    'COST_RATE': 0.0040,            # 거래 비용 비율 (0.4%)
 
     'RISK_PER_TRADE_PCT': 0.02,     # 1회 매매 시 자산의 2% 리스크
     'ATR_STOP_MULTIPLIER': 2.0,     # ATR의 몇 배를 손절폭으로 잡을 것인가 
