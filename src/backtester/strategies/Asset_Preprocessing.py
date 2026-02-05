@@ -21,9 +21,13 @@ CONFIG = {
 
     'TIME_STOP_DAYS': 10,           # 시간 제한 매도 기준일
     'TIME_STOP_MIN_RET': 0.01,      # 시간 제한 내 최소 수익률
-    'TECH_EXIT_MA': 'MA50',         # 추세 이탈 기준 이평선
+    'TECH_EXIT_MA': 'MA20',         # 추세 이탈 기준 이평선
 
-    'COST_RATE': 0.0040,            # 거래 비용 비율 (0.4%)
+    'COST_RATE': 0.0030,            # 거래 비용 비율 (0.3%)
+
+    'RISK_PER_TRADE_PCT': 0.02,     # 1회 매매 시 자산의 2% 리스크
+    'ATR_STOP_MULTIPLIER': 2.0,     # ATR의 몇 배를 손절폭으로 잡을 것인가 
+    'MAX_POS_WEIGHT': 0.25,         # 아무리 ATR이 작아도 자산의 25%까지만 매수 (안전장치)
 
     'START_DATE': "2016-01-01",
     'END_DATE': "2025-12-31",
@@ -95,7 +99,11 @@ def run_backtest():
                 curr_ret = (curr_price - entry_p) / entry_p
                 
                 # 매도가 계산 (손절선 vs 트레일링 스탑)
-                hard_stop = entry_p * (1 - CONFIG['STOP_LOSS_PCT'])
+                info = portfolio[ticker]
+                # 진입 시점에 ATR로 계산해서 저장해둔 '고정 손절가' 사용
+                hard_stop = info['stop_loss_price'] 
+
+                # 트레일링 스탑과 비교하여 더 높은 가격을 최종 매도가로 설정
                 trailing_stop = highest_p * (1 - CONFIG['TRAILING_STOP_PCT'])
                 final_stop = max(hard_stop, trailing_stop)
                 
@@ -135,7 +143,7 @@ def run_backtest():
             else:
                 curr_close = p_info.get('last_price', p_info['entry_price'])
             
-            current_equity += p_info['shares'] * curr_close
+            current_equity += float(p_info['shares']) * float(curr_close)
 
         # 슬롯 여유가 있을 때만 매수 탐색
         if len(portfolio) < CONFIG['MAX_SLOTS']:
@@ -151,21 +159,39 @@ def run_backtest():
                     df = price_cache[ticker]
                     
                     if df is not None and today_ts in df.index:
-                        buy_price = float(df.loc[today_ts, 'Close'])
-                        if buy_price <= 0: continue
-                        
-                        target_amt = current_equity * CONFIG['MAX_POS_WEIGHT']
-                        actual_amt = min(target_amt, cash)
-                        shares = int(actual_amt // buy_price)
-                        
+                        curr_data = df.loc[today_ts]
+                        buy_price = float(curr_data['Close'])
+                        atr_value = float(curr_data['ATR_14']) # minervini_filter에서 계산된 ATR 사용
+
+                        # 1. 내가 감당할 리스크 금액 (예: 1억 자산의 2% = 200만원)
+                        risk_amount = current_equity * CONFIG['RISK_PER_TRADE_PCT']
+
+                        # 2. 1주당 손절폭 (예: ATR 500원 * 2배 = 1,000원)
+                        stop_distance = atr_value * CONFIG['ATR_STOP_MULTIPLIER']
+    
+                        # 3. ATR이 너무 작을 경우를 대비한 최소 손절폭 (예: 주가의 최소 2%)
+                        stop_distance = max(stop_distance, buy_price * 0.02)
+
+                        # 4. 수량 계산: 리스크 금액 / 주당 손절폭
+                        shares = int(risk_amount // stop_distance)
+
+                        # 5. 비중 캡핑: 아무리 안전해 보여도 총 자산의 25%를 넘지 않게 함
+                        max_shares = int((current_equity * CONFIG['MAX_POS_WEIGHT']) // buy_price)
+                        shares = min(shares, max_shares)
+    
+                        # 6. 실제 매수 가능 금액(잔고) 체크
+                        if shares * buy_price > cash:
+                            shares = int(cash // buy_price)
+
                         if shares > 0:
                             portfolio[ticker] = {
                                 'shares': shares, 
                                 'entry_price': buy_price, 
+                                'stop_loss_price': buy_price - stop_distance, # 진입 시점에 손절가 고정!
                                 'entry_date': today_ts, 
                                 'highest_price': buy_price, 
                                 'days_held': 0,
-                                'last_price': buy_price  # 매수 시점 가격 초기화
+                                'last_price': buy_price 
                             }
                             cash -= shares * buy_price
 
@@ -175,7 +201,7 @@ def run_backtest():
         asset_details = []
         for t, p_info in portfolio.items():
             curr_close = p_info['last_price']
-            val = p_info['shares'] * curr_close
+            val = float(p_info['shares']) * float(curr_close)
             stock_ret = (curr_close - p_info['entry_price']) / p_info['entry_price']
             asset_details.append((t, val, stock_ret))
         
