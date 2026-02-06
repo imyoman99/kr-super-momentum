@@ -190,7 +190,10 @@ def save_results(history, trade_log, initial_cash):
     OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
     res_df = pd.DataFrame(history)
     res_df.to_csv(OUTPUT_PATH / "Asset_List_Final.csv", index=False, encoding='utf-8-sig')
-    
+    res_df['Peak'] = res_df['자산총액'].cummax()
+    res_df['Drawdown'] = (res_df['자산총액'] - res_df['Peak']) / res_df['Peak']
+
+    mdd = res_df['Drawdown'].min()
     if trade_log:
         log_df = pd.DataFrame(trade_log)
         log_df.to_csv(OUTPUT_PATH / "Trade_Log.csv", index=False, encoding='utf-8-sig')
@@ -200,12 +203,13 @@ def save_results(history, trade_log, initial_cash):
         win_rate = len(wins) / len(log_df) * 100
         avg_win = wins['Net_PnL'].mean() if not wins.empty else 0
         avg_loss = loses['Net_PnL'].mean() if not loses.empty else 1
-        
+
         print("\n" + "="*40)
         print(f"Final Asset: {int(res_df.iloc[-1]['자산총액']):,} KRW")
         print(f"Total Return: {(res_df.iloc[-1]['자산총액']/initial_cash-1)*100:.2f}%")
+        print(f"MDD: {mdd*100:.2f}%")
         print(f"Win Rate: {win_rate:.2f}% / PF: {abs(avg_win/avg_loss):.2f}")
         print("="*40)
-
+# ---------------------------------------------------------
 if __name__ == "__main__":
     run_backtest()
