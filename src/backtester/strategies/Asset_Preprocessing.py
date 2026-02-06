@@ -106,7 +106,7 @@ def run_backtest():
                 # 트레일링 스탑과 비교하여 더 높은 가격을 최종 매도가로 설정
                 trailing_stop = highest_p * (1 - CONFIG['TRAILING_STOP_PCT'])
                 final_stop = max(hard_stop, trailing_stop)
-                
+                info['stop_loss_price'] = final_stop
                 # 조건 판별
                 if curr_price <= final_stop:
                     sell_reason = "Initial_Stop_Loss" if final_stop == hard_stop else "Trailing_Stop_Profit"
@@ -187,7 +187,7 @@ def run_backtest():
                             portfolio[ticker] = {
                                 'shares': shares, 
                                 'entry_price': buy_price, 
-                                'stop_loss_price': buy_price - stop_distance, # 진입 시점에 손절가 고정!
+                                'stop_loss_price': buy_price - stop_distance,
                                 'entry_date': today_ts, 
                                 'highest_price': buy_price, 
                                 'days_held': 0,

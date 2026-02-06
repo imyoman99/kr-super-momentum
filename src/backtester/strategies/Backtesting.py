@@ -123,7 +123,7 @@ def main():
     if trade_log_path.exists():
         trades = pd.read_csv(trade_log_path)
         # 수익률 높은 순으로 상위 3개 추출
-        top_trades = trades.sort_values('Profit', ascending=False).head(3)
+        top_trades = trades.sort_values('Net_PnL', ascending=False).head(3)
         
         for idx, row in top_trades.iterrows():
             ticker = row['Ticker']
