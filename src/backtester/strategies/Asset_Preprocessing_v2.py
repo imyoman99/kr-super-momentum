@@ -12,16 +12,16 @@ CONFIG = {
     'MAX_SLOTS': 4,                   # 최대 보유 종목 수
     'MAX_POS_WEIGHT': 0.25,           # 종목당 최대 투자 비중
 
-    'HARD_STOP_PCT': 0.70,            # 하드 스탑 (구매가 대비 손실폭)
-    'TS_ACTIVATION_PCT': 0.40,        # 트레일링 스탑 활성화 수익률
-    'TRAILING_STOP_PCT': 0.20,        # 트레일링 스탑 폭
+    'HARD_STOP_PCT': 0.07,            # 하드 스탑 (구매가 대비 손실폭)
+    'TS_ACTIVATION_PCT': 0.10,        # 트레일링 스탑 활성화 수익률
+    'TRAILING_STOP_PCT': 0.10,        # 트레일링 스탑 폭
     
-    'TIME_STOP_DAYS': 250,            # 시간 손절 기준일
-    'TIME_STOP_MIN_RET': -0.30,       # 시간 손절 적용 최소 수익률
+    'TIME_STOP_DAYS': 10,            # 시간 손절 기준일
+    'TIME_STOP_MIN_RET': 0.00,       # 시간 손절 적용 최소 수익률
 
     'COST_RATE': 0.0040,              # 거래 비용 (세금 및 수수료)
     'RISK_PER_TRADE_PCT': 0.02,       # 총 자산 대비 1회 매매 리스크 (2%)
-    'ATR_STOP_MULTIPLIER': 6,         # ATR 기반 스탑 거리 배수
+    'ATR_STOP_MULTIPLIER': 2,         # ATR 기반 스탑 거리 배수
     
     'START_DATE': "2016-01-01",
     'END_DATE': "2025-12-31",
