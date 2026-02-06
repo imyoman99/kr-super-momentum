@@ -18,6 +18,7 @@ CONFIG = {
     
     'TIME_STOP_DAYS': 10,            # 시간 손절 기준일
     'TIME_STOP_MIN_RET': 0.00,       # 시간 손절 적용 최소 수익률
+    'TECH_EXIT_MA': 'MA20',          # 추세 이탈 기준 이평선
 
     'COST_RATE': 0.0040,              # 거래 비용 (세금 및 수수료)
     'RISK_PER_TRADE_PCT': 0.02,       # 총 자산 대비 1회 매매 리스크 (2%)
@@ -85,7 +86,8 @@ def run_backtest():
                 cash += exit_val * (1 - CONFIG['COST_RATE'])
                 
                 trade_log.append({
-                    'Ticker': ticker, 'Profit_Pct': -99.9, 'Net_PnL': int(pnl),
+                    'Ticker': ticker, 'Profit_Pct': round((last_close - info['entry_price']) / info['entry_price'] * 100, 2),
+                      'Net_PnL': int(pnl),
                     'Reason': 'Data_Ended', 'Entry_Date': info['entry_date'], 'Exit_Date': today_ts.date()
                 })
                 del portfolio[ticker]
@@ -108,6 +110,10 @@ def run_backtest():
             elif info['days_held'] >= CONFIG['TIME_STOP_DAYS']:
                 if (curr_close - info['entry_price']) / info['entry_price'] < CONFIG['TIME_STOP_MIN_RET']:
                     sell_signal = True; sell_price = curr_close; sell_reason = "Time_Stop"
+            elif curr_close < curr_data.get(CONFIG['TECH_EXIT_MA'], 0):
+                    sell_signal = True
+                    sell_price = curr_close
+                    sell_reason = f"{CONFIG['TECH_EXIT_MA']}_Break"
 
             if sell_signal:
                 shares = float(info['shares'])
