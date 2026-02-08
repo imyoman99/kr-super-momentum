@@ -8,7 +8,7 @@ from minervini_filter_v2 import check_minervini_from_df, load_from_parquet
 BASE_DIR = Path(__file__).resolve().parents[3] # 경로 상황에 맞게 조정 필요
 DATA_DIR = BASE_DIR / "data"
 UNIVERSE_PATH = DATA_DIR / "universe" / "intersection_80.csv"
-OUTPUT_FILE = "Pivot_Signals.csv"
+OUTPUT_FILE = BASE_DIR / "data" / "universe" / "Pivot_Signals.csv"
 
 # 피벗 재진입 쿨타임 (일): 한 번 신호가 뜨고 나서 N일 동안은 또 뜨더라도 무시 (중복 방지)
 PIVOT_COOLDOWN_DAYS = 20 
