@@ -6,8 +6,25 @@ import json
 import datetime
 import uuid
 from pathlib import Path
-from Asset_Preprocessing import CONFIG
-from minervini_filter import MINERVINI_CONFIG
+
+# =========================================================
+# [수정 1] 사용자 요청에 맞춰 설정 파일 Import 변경
+# =========================================================
+try:
+    from Asset_Preprocessing_v3 import CONFIG
+except ImportError:
+    print("[WARNING] Asset_Preprocessing_v3.py를 찾을 수 없습니다. 빈 설정을 사용합니다.")
+    CONFIG = {}
+
+try:
+    from minervini_filter_v2 import MINERVINI_CONFIG
+except ImportError:
+    # v2가 없으면 혹시 모를 구버전 시도 혹은 빈 값
+    try:
+        from minervini_filter import MINERVINI_CONFIG
+    except ImportError:
+        print("[WARNING] minervini_filter_v2.py 설정을 찾을 수 없습니다.")
+        MINERVINI_CONFIG = {}
 
 # =========================================================
 # 1. 경로 및 환경 설정
@@ -31,7 +48,11 @@ sys.path.append(str(ANALYTICS_DIR))
 try:
     from performance import PerformanceAnalyzer
     from visualizer import Visualizer
-    from minervini_filter import load_from_parquet
+    # minervini_filter_v2에 load_from_parquet가 있다고 가정 (없으면 수정 필요)
+    try:
+        from minervini_filter_v2 import load_from_parquet
+    except ImportError:
+        from minervini_filter import load_from_parquet
 except ImportError:
     print("[ERROR] analytics 폴더 내 performance.py 또는 visualizer.py를 찾을 수 없습니다.")
     sys.exit()
@@ -48,13 +69,12 @@ def get_next_test_dir(base_path):
     date_str = datetime.datetime.now().strftime('%Y%m%d')
     
     # 2. 랜덤 해시 생성 (6자리)
-    # uuid4().hex는 32자리 무작위 문자열을 생성하며, 그중 앞 6자리만 사용합니다.
     random_hash = uuid.uuid4().hex[:6]
     
     folder_name = f"{date_str}_{random_hash}"
     new_dir = base_path / folder_name
     
-    # 3. 만에 하나 폴더가 이미 존재할 경우를 대비한 안전장치
+    # 3. 중복 방지 안전장치
     while new_dir.exists():
         random_hash = uuid.uuid4().hex[:6]
         new_dir = base_path / f"{date_str}_{random_hash}"
@@ -82,7 +102,7 @@ def main():
     df['DATE'] = pd.to_datetime(df['DATE'])
     df.set_index('DATE', inplace=True)
     
-    # 차후 분석 결과와 대조를 위해 사용된 원본 데이터를 해당 폴더에 복사본으로 저장
+    # 원본 데이터 복사
     shutil.copy(RESULT_PATH, save_dir / "Source_Data.csv")
 
     # --- 단계 2: 성과 지표 분석 ---
@@ -113,11 +133,9 @@ def main():
         vis.plot_return_dist(str(save_dir / "6_return_dist.png"))         # 일일 수익률 분포도
         print("[SUCCESS] 모든 시각화 차트가 폴더 내 저장되었습니다.")
     except Exception as e:
-        # Visualizer 클래스 내 일부 함수가 구현되지 않았거나 데이터 부족 시 오류 예외 처리
         print(f"[WARNING] 시각화 과정 중 일부 항목에서 오류가 발생했습니다: {e}")
 
-    # Backtesting.py 내 main() 함수 중간에 추가
-
+    # --- 단계 4: 매매 사례 분석 ---
     print("\n[INFO] 주요 매매 사례 분석 차트 생성 중...")
     trade_log_path = BASE_DIR / "strategies" / "Trade_Log.csv"
     if trade_log_path.exists():
@@ -126,11 +144,18 @@ def main():
         top_trades = trades.sort_values('Net_PnL', ascending=False).head(3)
         
         for idx, row in top_trades.iterrows():
-            ticker = row['Ticker']
-            entry_date = pd.to_datetime(row.get('Entry_Date')) # 매수날짜가 저장되어 있다고 가정
+            ticker = str(row['Ticker']).zfill(6)
+            # Entry_Date가 있는지 확인
+            if 'Entry_Date' in row:
+                entry_date = pd.to_datetime(row['Entry_Date'])
+            else:
+                continue
+
+            # 개별 종목 데이터 로드 (경로 주의: 기존 코드의 경로 로직 유지)
+            # 주의: parquet 폴더 경로가 사용자 환경에 맞는지 확인 필요
+            parquet_folder = BASE_DIR.parent.parent / "data" # data 폴더 추정
             
-            # 개별 종목 데이터 로드 (minervini_filter의 함수 재사용)
-            df_ticker = load_from_parquet(ticker, str(BASE_DIR / "20160101_20251231_parquet") + "\\")
+            df_ticker = load_from_parquet(ticker, str(parquet_folder) + "\\")
             
             if df_ticker is not None:
                 save_name = save_dir / f"analysis_{ticker}_{idx}.png"
@@ -138,13 +163,17 @@ def main():
 
     print("[SUCCESS] 매매 사례 분석 차트가 저장되었습니다.")
 
+    # --- 단계 5: 설정값 저장 (수정된 부분) ---
     configs_to_save = {
         "BACKTEST_CONFIG": CONFIG,
-        "MINERVINI_FILTER_CONFIG": MINERVINI_CONFIG
+        "MINERVINI_FILTER_CONFIG": MINERVINI_CONFIG,
+        "GENERATED_AT": str(datetime.datetime.now())
     }
     
     with open(save_dir / "used_configs.json", "w", encoding="utf-8") as f:
-        json.dump(configs_to_save, f, indent=4, ensure_ascii=False)
+        # [핵심 수정] default=str 옵션을 넣어 WindowsPath 객체를 문자열로 자동 변환
+        json.dump(configs_to_save, f, indent=4, ensure_ascii=False, default=str)
+        
     print(f"[INFO] 설정값 저장 완료: used_configs.json")
 
     print(f"\n[FINISH] 모든 데이터 분석 절차가 완료되었습니다.")
