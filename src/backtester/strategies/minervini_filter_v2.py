@@ -14,13 +14,12 @@ MINERVINI_CONFIG = {
     'LOOKBACK_50MA': 5,        # 5일선 추세 확인 기간
     
     'MAX_DIST_52W_HIGH': 0.1,  # 52주 신고가 대비 최대 이격 (10% 이내)
-    'MIN_DIST_52W_LOW': 0.30,  # 52주 신저가 대비 최소 상승폭 (30% 이상)
+    'MIN_DIST_52W_LOW': 0.3,  # 52주 신저가 대비 최소 상승폭 (30% 이상)
     
     'VOL_LOOKBACK': 10,        # 거래량 돌파 확인 기간
     'VCP_WINDOW': 20,          # 변동성/거래량 수축 확인 윈도우
     'ATR_WINDOW': 14,          # ATR 계산 기간
 }
-
 def load_from_parquet(code, data_dir='./data/'):
     """Parquet 파일 로드 및 기술적 지표(MA, TR, ATR) 계산"""
     file_path = f"{data_dir}/{code}.parquet"
@@ -98,18 +97,49 @@ def check_sufficient_volume(volume_series):
     win = MINERVINI_CONFIG['VOL_LOOKBACK']
     return volume_series.iloc[-1] == volume_series.iloc[-win:].max() if len(volume_series) >= win else False
 
-def check_volatility_contraction(close_series, atr_series=None):
-    """VCP 패턴: 최근 변동성(ATR 또는 표준편차)이 이전 기간보다 수축"""
+def check_volatility_contraction(close_series, atr_series=None, threshold=1):
+    """
+    VCP 패턴: 최근 변동성이 수축해야 하며, '오늘' 가격이 튀지 않아야 함
+    """
     win = MINERVINI_CONFIG['VCP_WINDOW']
     if len(close_series) < win * 2: return False
-    if atr_series is not None:
-        return atr_series.iloc[-win:].mean() < atr_series.iloc[-(win*2):-win].mean()
-    return close_series.iloc[-win:].std() < close_series.iloc[-(win*2):-win].std()
+    
+    # [추가] 오늘 가격 폭등 감지 (예: 어제보다 4% 이상 올랐으면 이미 터진 것)
+    today_change = abs(close_series.iloc[-1] / close_series.iloc[-2] - 1)
+    if today_change > 0.04: # 4% 임계값 (조절 가능)
+        return False
 
-def check_volume_contraction(volume_series):
-    """거래량 수축: 최근 평균 거래량이 이전 기간보다 감소"""
+    if atr_series is not None:
+        current_vol = atr_series.iloc[-win:].mean()
+        prev_vol = atr_series.iloc[-(win*2):-win].mean()
+        # 오늘 ATR이 갑자기 튀었는지도 확인 (평균의 1.3배 이상이면 탈락)
+        if atr_series.iloc[-1] > prev_vol * 1.3:
+            return False
+        return current_vol < (prev_vol * threshold)
+        
+    current_std = close_series.iloc[-win:].std()
+    prev_std = close_series.iloc[-(win*2):-win].std()
+    return current_std < (prev_std * threshold)
+
+def check_volume_contraction(volume_series, threshold=1):
+    """
+    거래량 수축: 최근 거래량이 말라야 하며, '오늘' 거래량이 터지지 않아야 함
+    """
     win = MINERVINI_CONFIG['VCP_WINDOW']
-    return volume_series.iloc[-win:].mean() < volume_series.iloc[-(win*2):-win].mean() if len(volume_series) >= win * 2 else False
+    if len(volume_series) < win * 2: return False
+    
+    # 이전 구간 평균 거래량
+    prev_vol_avg = volume_series.iloc[-(win*2):-win].mean()
+    
+    # [추가] 오늘 거래량 폭발 감지
+    # 오늘 거래량이 이전 구간 평균의 1.2배(120%)를 넘으면 이미 수급이 들어온 것
+    if volume_series.iloc[-1] > prev_vol_avg * 1.2: 
+        return False
+    
+    current_vol_avg = volume_series.iloc[-win:].mean()
+    
+    # 전체적인 수축 조건 확인
+    return current_vol_avg < (prev_vol_avg * threshold)
 
 # ---------------------------------------------------------
 # 통합 실행 엔진
@@ -138,7 +168,7 @@ def check_minervini_from_df(df, date):
         check_above_52w_low(c, MINERVINI_CONFIG['MIN_DIST_52W_LOW']),
         check_price_above_10ma(c.iloc[-1], m20.iloc[-1]),
         check_150ma_up(m150),
-        check_sufficient_volume(v),
+        #check_sufficient_volume(v),
         check_volatility_contraction(c, atr),
         check_volume_contraction(v)
     ]

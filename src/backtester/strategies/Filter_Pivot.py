@@ -11,7 +11,7 @@ UNIVERSE_PATH = DATA_DIR / "universe" / "intersection_80.csv"
 OUTPUT_FILE = BASE_DIR / "data" / "universe" / "Pivot_Signals.csv"
 
 # 피벗 재진입 쿨타임 (일): 한 번 신호가 뜨고 나서 N일 동안은 또 뜨더라도 무시 (중복 방지)
-PIVOT_COOLDOWN_DAYS = 20 
+PIVOT_COOLDOWN_DAYS = 0 
 
 def main():
     if not UNIVERSE_PATH.exists():
