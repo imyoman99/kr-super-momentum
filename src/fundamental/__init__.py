@@ -5,7 +5,7 @@ import glob
 from tqdm import tqdm
 
 DATA_DIR_PATH = r"C:\Users\dhlim\OneDrive\Desktop\kr-super-momentum\PROJECT_ROOT\data"
-RS_FILE_PATH = os.path.join(DATA_DIR_PATH, "rs_list_80.csv")
+RS_FILE_PATH = os.path.join(DATA_DIR_PATH, "intersection_rs.csv")
 BASE_DIR = os.getcwd()
 OUTPUT_DIR = os.path.join(BASE_DIR, "src", "fundamental")
 
@@ -17,16 +17,19 @@ class FundamentalScreener:
     def __init__(self, data_folder, rs_file_path):
         self.data_folder = data_folder
         self.rs_file_path = rs_file_path
+        print(">>> [Init] Loading Data...")
         self.price_df = self._load_price_data()
         self.rs_df = self._load_rs()
 
     def _load_price_data(self):
         file_list = glob.glob(os.path.join(self.data_folder, "*.parquet"))
         if not file_list:
+            print(f"!!! Error: No parquet files found in {self.data_folder}")
             return pd.DataFrame()
 
+        print(f"Found {len(file_list)} parquet files.")
+
         df_list = []
-        # 컬럼 매칭을 위한 기준 리스트
         market_cols = [
             "date",
             "ticker",
@@ -35,62 +38,57 @@ class FundamentalScreener:
             "shares",
             "amount",
             "marcap",
+            "name",
         ]
 
         for file in tqdm(file_list, desc="Loading Prices"):
             try:
                 temp_df = pd.read_parquet(file)
-                # 1. 컬럼명 표준화 (소문자, 공백제거)
                 temp_df.columns = [str(c).lower().strip() for c in temp_df.columns]
 
-                # 2. 날짜 컬럼 확보 (가장 중요)
-                # 'date'라는 컬럼이 없으면 인덱스를 리셋해서라도 만들어낸다.
                 if "date" not in temp_df.columns:
-                    # 인덱스 이름이 'date'나 'index'인 경우를 포함해 처리
                     temp_df = temp_df.reset_index()
-                    # 리셋 후 첫 번째 컬럼(구 인덱스)을 'date'로 강제 명명
-                    new_col_name = temp_df.columns[0]
-                    temp_df.rename(columns={new_col_name: "date"}, inplace=True)
+                    temp_df.rename(columns={temp_df.columns[0]: "date"}, inplace=True)
 
-                # 3. 티커 컬럼 확보
                 if "ticker" not in temp_df.columns:
-                    # 파일명에서 티커 추출 (예: 005930.parquet -> 005930)
-                    ticker_code = os.path.splitext(os.path.basename(file))[0]
-                    temp_df["ticker"] = ticker_code
+                    if "code" in temp_df.columns:
+                        temp_df.rename(columns={"code": "ticker"}, inplace=True)
+                    else:
+                        ticker_code = os.path.splitext(os.path.basename(file))[0]
+                        temp_df["ticker"] = ticker_code
 
-                # 4. 필요한 컬럼만 선택 (방어적 로직)
-                # market_cols에 있거나, 재무 데이터(revenue, op_income)인 컬럼 선택
+                temp_df["ticker"] = temp_df["ticker"].astype(str).str.zfill(6)
+
                 cols_to_keep = [
                     c
                     for c in temp_df.columns
                     if c in market_cols or c in ["revenue", "op_income"]
                 ]
-
-                # [Fix] date 컬럼이 cols_to_keep에 빠져있다면 강제 추가
                 if "date" not in cols_to_keep and "date" in temp_df.columns:
                     cols_to_keep.append("date")
 
                 temp_df = temp_df[cols_to_keep]
                 df_list.append(temp_df)
-            except Exception:
+            except Exception as e:
+                # print(f"Error reading {file}: {e}")
                 continue
 
         if not df_list:
             return pd.DataFrame()
 
-        # 병합
         df = pd.concat(df_list, ignore_index=True)
 
-        # [Fix] 최종 결과물에 date가 없는 경우 방어
-        if "date" not in df.columns:
-            return pd.DataFrame()
-
-        # 타입 변환
         df["date"] = pd.to_datetime(df["date"], errors="coerce")
-        return df.dropna(subset=["date"]).sort_values(["ticker", "date"])
+        df = df.dropna(subset=["date"]).sort_values(["ticker", "date"])
+
+        print(
+            f">>> [Price Data] Loaded {len(df)} rows. Sample Ticker: {df['ticker'].iloc[0]}"
+        )
+        return df
 
     def _load_rs(self):
         if not os.path.exists(self.rs_file_path):
+            print(f"!!! Error: RS file not found at {self.rs_file_path}")
             return pd.DataFrame()
         try:
             rs_df = pd.read_csv(self.rs_file_path)
@@ -99,86 +97,108 @@ class FundamentalScreener:
                 inplace=True,
             )
             rs_df["date"] = pd.to_datetime(rs_df["date"])
+
             rs_df["ticker"] = rs_df["ticker"].apply(
                 lambda x: f"{int(x):06d}" if str(x).isdigit() else str(x)
             )
+
+            print(
+                f">>> [RS Data] Loaded {len(rs_df)} rows. Sample Ticker: {rs_df['ticker'].iloc[0]}"
+            )
             return rs_df
-        except:
+        except Exception as e:
+            print(f"!!! Error loading RS file: {e}")
             return pd.DataFrame()
 
     def _get_period_label(self, date):
         m, d = date.month, date.day
         md = m * 100 + d
-
-        # 1Q 사용: 05.16 ~ 08.15
         if 516 <= md <= 815:
             return "1Q"
-        # 2Q 사용: 08.16 ~ 11.15
         elif 816 <= md <= 1115:
             return "2Q"
-        # 3Q 사용: 11.16 ~ 03.31 (연말 포함)
         elif md >= 1116 or md <= 331:
             return "3Q"
-        # 4Q 사용: 04.01 ~ 05.15
         elif 401 <= md <= 515:
             return "4Q"
         return "Check"
 
     def run(self):
         if self.price_df.empty:
+            print("!!! Price DF is empty.")
             return pd.DataFrame()
 
         daily_df = self.price_df.copy()
-        c = "close" if "close" in daily_df.columns else "Close"
+        print(f"Step 1: Start with {len(daily_df)} rows from Price Data")
 
-        # 시총 계산
+        c = "close" if "close" in daily_df.columns else "Close"
         if "marcap" not in daily_df.columns:
             daily_df["marcap"] = daily_df[c] * daily_df.get("shares", 0)
 
-        # 거래대금 계산
         if "daily_trading_value" not in daily_df.columns:
             daily_df["daily_trading_value"] = daily_df.get(
                 "amount", daily_df[c] * daily_df.get("volume", 0)
             )
 
-        # RS 병합
         if not self.rs_df.empty:
+            before_merge = len(daily_df)
             daily_df = pd.merge(
                 daily_df,
                 self.rs_df[["date", "ticker", "rs_score"]],
                 on=["date", "ticker"],
                 how="inner",
             )
-
-        # 재무지표 계산 (일별 데이터에 포함된 경우)
-        if "op_margin" not in daily_df.columns and "revenue" in daily_df.columns:
-            daily_df["op_margin"] = np.where(
-                (daily_df["revenue"] != 0) & daily_df["revenue"].notnull(),
-                daily_df["op_income"] / daily_df["revenue"],
-                0,
+            print(
+                f"Step 2: After RS Merge (Inner Join) -> {len(daily_df)} rows (Dropped {before_merge - len(daily_df)} rows)"
             )
 
-        if "rev_yoy" not in daily_df.columns and "revenue" in daily_df.columns:
-            daily_df["rev_yoy"] = (
-                daily_df.groupby("ticker")["revenue"].pct_change(250).fillna(0)
-            )
+            if daily_df.empty:
+                print("!!! Merge failed.")
+                return pd.DataFrame()
 
-        # 기간 라벨링
+        if "revenue" in daily_df.columns:
+            if "op_margin" not in daily_df.columns:
+                daily_df["op_margin"] = np.where(
+                    (daily_df["revenue"] != 0) & daily_df["revenue"].notnull(),
+                    daily_df["op_income"] / daily_df["revenue"],
+                    0,
+                )
+            if "rev_yoy" not in daily_df.columns:
+                daily_df["rev_yoy"] = (
+                    daily_df.groupby("ticker")["revenue"].pct_change(250).fillna(0)
+                )
+        else:
+            print("!!! Warning: 'revenue' column missing. Financial filters will fail.")
+            daily_df["op_margin"] = 0
+            daily_df["rev_yoy"] = 0
+
         daily_df["usage_period"] = daily_df["date"].apply(self._get_period_label)
 
-        # 필터링
-        cond = (
-            (daily_df["op_margin"] > 0)
-            & (daily_df["rev_yoy"] > 0)
-            & (daily_df["marcap"] >= 500e8)
-            & (daily_df["daily_trading_value"] >= 5e8)
+        # 연도 추출
+        daily_df["year"] = daily_df["date"].dt.year
+
+        print(f"Step 3: Filtering...")
+
+        # 1. 영업이익률 > 0 (공통 조건)
+        cond_quality = daily_df["op_margin"] > 0
+
+        # 2. 성장성 조건 (16~20년은 제외, 21년부터는 rev_yoy > 0)
+        #    조건: (연도가 2016~2020 사이임) OR (rev_yoy > 0)
+        cond_growth = (daily_df["year"].between(2016, 2020)) | (daily_df["rev_yoy"] > 0)
+
+        # 3. 유동성 조건
+        cond_liquidity = (daily_df["marcap"] >= 500e8) & (
+            daily_df["daily_trading_value"] >= 5e8
         )
-        sel = daily_df[cond].copy()
+
+        # 최종 필터링
+        sel = daily_df[cond_quality & cond_growth & cond_liquidity].copy()
+        print(f" - Final Filtered Rows: {len(sel)}")
 
         if sel.empty:
+            print("!!! Result is empty after filtering.")
             return pd.DataFrame()
 
-        # 스코어링 (Z-Score)
         def get_zscore(x):
             if x.std() == 0:
                 return 0
@@ -199,7 +219,6 @@ class FundamentalScreener:
         g_final = sel.groupby("date")["raw_total_score"]
         min_s = g_final.transform("min")
         max_s = g_final.transform("max")
-
         sel["total_score"] = (
             (sel["raw_total_score"] - min_s) / (max_s - min_s + 1e-9) * 100
         )
@@ -215,9 +234,6 @@ class FundamentalScreener:
             "op_margin",
             "marcap",
             "daily_trading_value",
-            "z_rs",
-            "z_growth",
-            "z_quality",
         ]
         final_cols = [c for c in out_cols if c in sel.columns]
 
