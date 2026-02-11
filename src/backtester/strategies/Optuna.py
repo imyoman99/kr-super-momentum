@@ -61,13 +61,13 @@ def objective(trial):
     # [A] 하이퍼파라미터 제안 (탐색 범위 설정)
     params = {
         'STOP_LOSS_PCT': trial.suggest_float('STOP_LOSS_PCT', 0.03, 0.07, step=0.01),
-        'TRAIL_TRIGGER_PCT': trial.suggest_float('TRAIL_TRIGGER_PCT', 0.26, 0.30, step=0.01), # 상향 조정
+        'TRAIL_TRIGGER_PCT': trial.suggest_float('TRAIL_TRIGGER_PCT', 0.20, 0.30, step=0.05), # 상향 조정
         'TRAIL_STOP_PCT': trial.suggest_float('TRAIL_STOP_PCT', 0.00, 0.03, step=0.01),     # 상향 조정
-        'TIME_STOP_DAYS': trial.suggest_float('TIME_STOP_DAYS', 11, 15, step=1),                        # 범위 최적화
+        'TIME_STOP_DAYS': trial.suggest_float('TIME_STOP_DAYS', 10, 20, step=5),                        # 범위 최적화
         
         # 신규 최적화 변수 추가
-        'BREAK_EVEN_TRIGGER': trial.suggest_float('BREAK_EVEN_TRIGGER', 0.10, 0.14, step=0.01),
-        'BREAK_EVEN_BUFFER': trial.suggest_float('BREAK_EVEN_BUFFER', 0.012, 0.16, step=0.001),
+        'BREAK_EVEN_TRIGGER': trial.suggest_float('BREAK_EVEN_TRIGGER', 0.10, 0.20, step=0.05),
+        'BREAK_EVEN_BUFFER': trial.suggest_float('BREAK_EVEN_BUFFER', 0.05, 0.2, step=0.05),
         'TIME_STOP_ROI': 0.02,
         
         # 고정 환경 설정
@@ -185,7 +185,7 @@ def objective(trial):
 
 if __name__ == "__main__":
     study = optuna.create_study(direction='maximize')
-    study.optimize(objective, n_trials=300) # 여기서 횟수 조절 가능
+    study.optimize(objective, n_trials=200) # 여기서 횟수 조절 가능
 
     # [추가] 모든 최적화 결과 기록을 데이터프레임으로 변환
     df_results = study.trials_dataframe()

@@ -166,7 +166,7 @@ def check_minervini_from_df(df, date):
         check_50ma_up(m50),
         check_within_52w_high(c, MINERVINI_CONFIG['MAX_DIST_52W_HIGH']),
         check_above_52w_low(c, MINERVINI_CONFIG['MIN_DIST_52W_LOW']),
-        #check_price_above_10ma(c.iloc[-1], m20.iloc[-1]),
+        check_price_above_10ma(c.iloc[-1], m20.iloc[-1]),
         check_150ma_up(m150),
         #check_sufficient_volume(v),
         check_volatility_contraction(c, atr),
