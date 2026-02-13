@@ -14,7 +14,9 @@ def parse_args():
     parser.add_argument("--balance", action="store_true", help="잔고 조회")
     parser.add_argument("--buy", nargs=2, metavar=("TICKER", "QTY"), help="매수 주문")
     parser.add_argument("--sell", nargs=2, metavar=("TICKER", "QTY"), help="매도 주문")
-    parser.add_argument("--price", type=int, default=0, help="지정가 가격(기본: 0=시장가)")
+    parser.add_argument(
+        "--price", type=int, default=0, help="지정가 가격(기본: 0=시장가)"
+    )
     parser.add_argument("--confirm", action="store_true", help="실주문 실행 확인")
     return parser.parse_args()
 

@@ -62,11 +62,11 @@ for desc, ticker in targets:
     rs_idx = base_cols.index("RS")
     # MarCap 다음에 MA, 그 다음 RS, 마지막에 Date
     out_cols = (
-        base_cols[:marcap_idx+1] +
-        ma_cols +
-        base_cols[rs_idx:rs_idx+1] +
-        [col for col in base_cols[rs_idx+1:] if col != "Date"] +
-        ["Date"]
+        base_cols[: marcap_idx + 1]
+        + ma_cols
+        + base_cols[rs_idx : rs_idx + 1]
+        + [col for col in base_cols[rs_idx + 1 :] if col != "Date"]
+        + ["Date"]
     )
     df = df[out_cols]
     fname = f"{ticker}.parquet"

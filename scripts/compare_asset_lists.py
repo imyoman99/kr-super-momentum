@@ -28,7 +28,7 @@ print(f"행 개수: {len(df1)} vs {len(df2)}")
 print(f"열 개수: {len(df1.columns)} vs {len(df2.columns)}")
 
 # 날짜 컬럼 자동 탐색
-date_col = [c for c in df1.columns if 'DATE' in c or '날짜' in c]
+date_col = [c for c in df1.columns if "DATE" in c or "날짜" in c]
 if date_col:
     date_col = date_col[0]
     dates1 = set(df1[date_col])
@@ -41,21 +41,21 @@ else:
     print("날짜 컬럼을 찾을 수 없습니다.")
 
 # 자산총액 비교
-if '자산총액' in df1.columns and '자산총액' in df2.columns:
-    diff = (df1['자산총액'] != df2['자산총액'])
+if "자산총액" in df1.columns and "자산총액" in df2.columns:
+    diff = df1["자산총액"] != df2["자산총액"]
     diff_count = diff.sum()
     print(f"자산총액이 다른 날짜 수: {diff_count}")
     if diff_count > 0:
-        print(df1.loc[diff, ['DATE','자산총액']].head())
-        print(df2.loc[diff, ['DATE','자산총액']].head())
+        print(df1.loc[diff, ["DATE", "자산총액"]].head())
+        print(df2.loc[diff, ["DATE", "자산총액"]].head())
 else:
     print("자산총액 컬럼을 찾을 수 없습니다.")
 
 # 매매내역 비교(티커)
-ticker_cols = [c for c in df1.columns if '티커' in c]
+ticker_cols = [c for c in df1.columns if "티커" in c]
 if ticker_cols:
     for col in ticker_cols:
-        diff = (df1[col] != df2[col])
+        diff = df1[col] != df2[col]
         diff_count = diff.sum()
         print(f"{col} 값이 다른 날짜 수: {diff_count}")
 else:
