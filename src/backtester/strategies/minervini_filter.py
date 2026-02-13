@@ -2,216 +2,247 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 
-# =========================================================
-# [MINERVINI_CONFIG] 필터 수치 설정
-# =========================================================
+# [MINERVINI_CONFIG] 기술적 지표 및 임계값 설정
 MINERVINI_CONFIG = {
-    # 1. 이동평균선(MA) 설정
-    'MA_SHORT': 20,          # 단기 추세선 (원본 코드 MA10 대신 MA20 사용)
-    'MA_MEDIUM': 50,         # 중기 추세선
-    'MA_LONG_15': 150,       # 장기 추세선 1
-    'MA_LONG_20': 200,       # 장기 추세선 2
-    
-    # 2. 이평선 추세 확인 기간 (Lookback)
-    'LOOKBACK_200MA': 20,    # 200일선 상승 확인 (20일 전 데이터와 비교)
-    'LOOKBACK_150MA': 10,    # 150일선 상승 확인 (10일 전 데이터와 비교)
-    'LOOKBACK_50MA': 5,      # 5일선 상승 확인 (5일 전 데이터와 비교)
-    
-    # 3. 52주 고가/저가 기준
-    'MAX_DIST_52W_HIGH': 0.1,  # 52주 최고가 대비 이격도 (25% 이내)
-    'MIN_DIST_52W_LOW': 0.30,   # 52주 최저가 대비 상승폭 (30% 이상)
-    
-    # 4. 거래량 및 VCP(변동성 수축) 설정
-    'VOL_LOOKBACK': 10,      # 거래량 돌파 확인 기간
-    'VCP_WINDOW': 20,        # VCP 수축 확인 윈도우 (최근 10일 vs 이전 10일)
-    'ATR_WINDOW': 14,        # 변동성 지표(ATR) 계산 기간
+    "MA_MEDIUM": 50,  # 중기 이동평균선
+    "MA_LONG_15": 150,  # 장기 이동평균선 1
+    "MA_LONG_20": 200,  # 장기 이동평균선 2
+    "LOOKBACK_200MA": 20,  # 200일선 추세 확인 기간
+    "LOOKBACK_150MA": 10,  # 150일선 추세 확인 기간
+    "LOOKBACK_50MA": 5,  # 5일선 추세 확인 기간
+    "MAX_DIST_6M_HIGH": 0.15,  # 6개월 고점 대비 최대 이격 (15% 이내)
+    "SIX_MONTH_WINDOW": 120,  # 6개월(거래일 기준 약 120일)
+    "VOL_LOOKBACK": 10,  # 거래량 돌파 확인 기간
+    "VCP_WINDOW": 20,  # 변동성/거래량 수축 확인 윈도우
+    "ATR_WINDOW": 14,  # ATR 계산 기간
 }
 
-def load_from_parquet(code, data_dir='./data/'):
-    """
-    특정 종목의 Parquet 데이터를 로드하고 필요한 이동평균선 및 ATR을 계산합니다.
-    
-    매개변수:
-    - code: 종목 코드
-    - data_dir: 데이터 파일 경로
-    """
-    file_path = f"{data_dir}{code}.parquet"
+
+def load_from_parquet(code, data_dir="./data/"):
+    """Parquet 파일 로드 및 기술적 지표(MA, TR, ATR) 계산"""
+    file_path = f"{data_dir}/{code}.parquet"
     try:
         df = pd.read_parquet(file_path)
-        if 'Date' in df.columns:
-            df.set_index('Date', inplace=True)
+        if "Date" in df.columns:
+            df.set_index("Date", inplace=True)
         df.index = pd.to_datetime(df.index)
 
-        # 설정된 주기에 맞춰 이동평균선(MA) 계산
-        ma_list = [
-            MINERVINI_CONFIG['MA_SHORT'], 
-            MINERVINI_CONFIG['MA_MEDIUM'], 
-            MINERVINI_CONFIG['MA_LONG_15'], 
-            MINERVINI_CONFIG['MA_LONG_20']
-        ]
-        
-        for ma in ma_list:
-            col = f'MA{ma}'
-            if col not in df.columns and 'Close' in df.columns:
-                df[col] = df['Close'].rolling(window=ma).mean()
+        # 이동평균선 계산
+        for ma in [
+            MINERVINI_CONFIG["MA_MEDIUM"],
+            MINERVINI_CONFIG["MA_LONG_15"],
+            MINERVINI_CONFIG["MA_LONG_20"],
+        ]:
+            col = f"MA{ma}"
+            if col not in df.columns:
+                df[col] = df["Close"].rolling(window=ma).mean()
 
-        # ATR(Average True Range) 계산: 변동성 수축 확인 지표
-        if 'ATR_14' not in df.columns and all(k in df.columns for k in ['High', 'Low', 'Close']):
-            df['TR'] = pd.concat([
-                df['High'] - df['Low'],
-                (df['High'] - df['Close'].shift(1)).abs(),
-                (df['Low'] - df['Close'].shift(1)).abs()
-            ], axis=1).max(axis=1)
-            df['ATR_14'] = df['TR'].rolling(window=MINERVINI_CONFIG['ATR_WINDOW']).mean()
-        
+        # ATR 계산
+        if "ATR_14" not in df.columns:
+            tr = pd.concat(
+                [
+                    df["High"] - df["Low"],
+                    (df["High"] - df["Close"].shift(1)).abs(),
+                    (df["Low"] - df["Close"].shift(1)).abs(),
+                ],
+                axis=1,
+            ).max(axis=1)
+            df["ATR_14"] = tr.rolling(window=MINERVINI_CONFIG["ATR_WINDOW"]).mean()
+
         return df
-    except Exception:
+    except:
         return None
 
+
 # ---------------------------------------------------------
-# 개별 기술적 필터 함수 (Minervini's Trend Template)
+# 개별 필터 로직
 # ---------------------------------------------------------
+
 
 def check_price_above_mas(close, ma50, ma150, ma200):
-    """현재가가 중/장기 이평선(50, 150, 200일선) 위에 있는지 확인"""
-    try:
-        return (close > ma50) and (close > ma150) and (close > ma200)
-    except:
-        return False
+    """현재가 > MA50 AND 현재가 > MA150 AND 현재가 > MA200"""
+    return (close > ma50) and (close > ma150) and (close > ma200)
+
 
 def check_ma_alignment(ma50, ma150, ma200):
-    """이평선이 정배열(50 > 150 > 200) 상태인지 확인"""
-    try:
-        return (ma50 > ma150) and (ma150 > ma200)
-    except:
-        return False
+    """MA50 > MA150 > MA200 (정배열 상태)"""
+    return (ma50 > ma150) and (ma150 > ma200)
+
 
 def check_200ma_up(ma200_series):
-    """200일 이동평균선이 최근 상승 추세인지 확인"""
-    lookback = MINERVINI_CONFIG['LOOKBACK_200MA']
-    try:
-        if len(ma200_series) >= lookback + 1:
-            return ma200_series.iloc[-1] > ma200_series.iloc[-(lookback + 1)]
-        return False
-    except:
-        return False
+    """200일선 상승 추세 확인 (20일 전 대비)"""
+    lb = MINERVINI_CONFIG["LOOKBACK_200MA"]
+    return (
+        ma200_series.iloc[-1] > ma200_series.iloc[-(lb + 1)]
+        if len(ma200_series) > lb
+        else False
+    )
+
 
 def check_50ma_up(ma50_series):
-    """50일 이동평균선이 최근 상승 추세인지 확인"""
-    lookback = MINERVINI_CONFIG['LOOKBACK_50MA']
-    try:
-        if len(ma50_series) >= lookback + 1:
-            return ma50_series.iloc[-1] > ma50_series.iloc[-(lookback + 1)]
-        return False
-    except:
-        return False
+    """50일선 상승 추세 확인 (5일 전 대비)"""
+    lb = MINERVINI_CONFIG["LOOKBACK_50MA"]
+    return (
+        ma50_series.iloc[-1] > ma50_series.iloc[-(lb + 1)]
+        if len(ma50_series) > lb
+        else False
+    )
 
-def check_within_52w_high(close_series, max_distance):
-    """현재가가 52주 최고가 부근(설정값 이내)인지 확인"""
-    try:
-        window = 252 if len(close_series) >= 252 else len(close_series)
-        week_52_high = close_series.iloc[-window:].max()
-        distance = (week_52_high - close_series.iloc[-1]) / week_52_high if week_52_high != 0 else 1.0
-        return distance <= max_distance
-    except:
-        return False
 
-def check_above_52w_low(close_series, min_distance):
-    """현재가가 52주 최저가 대비 충분히(설정값 이상) 반등했는지 확인"""
-    try:
-        window = 252 if len(close_series) >= 252 else len(close_series)
-        week_52_low = close_series.iloc[-window:].min()
-        distance = (close_series.iloc[-1] - week_52_low) / week_52_low if week_52_low != 0 else 0.0
-        return distance >= min_distance
-    except:
+def check_near_6m_high(close_series, max_distance, window):
+    """현재가가 최근 6개월 고점 대비 max_distance 이내 위치"""
+    window = min(window, len(close_series))
+    if window <= 0:
         return False
+    high_6m = close_series.iloc[-window:].max()
+    return (
+        ((high_6m - close_series.iloc[-1]) / high_6m) <= max_distance
+        if high_6m > 0
+        else False
+    )
 
-def check_price_above_10ma(close, ma20):
-    """현재가가 단기 추세선(20일선) 위에 있는지 확인"""
-    try:
-        return close > ma20
-    except:
-        return False
 
 def check_150ma_up(ma150_series):
-    """150일 이동평균선이 최근 상승 추세인지 확인"""
-    lookback = MINERVINI_CONFIG['LOOKBACK_150MA']
-    try:
-        if len(ma150_series) >= lookback + 1:
-            return ma150_series.iloc[-1] > ma150_series.iloc[-(lookback + 1)]
-        return False
-    except:
+    """150일선 상승 추세 확인 (10일 전 대비)"""
+    lb = MINERVINI_CONFIG["LOOKBACK_150MA"]
+    return (
+        ma150_series.iloc[-1] > ma150_series.iloc[-(lb + 1)]
+        if len(ma150_series) > lb
+        else False
+    )
+
+
+def check_volatility_contraction(close_series, atr_series):
+    """VCP 패턴: 최근 ATR 평균과 최대값이 이전 기간보다 수축"""
+    win = MINERVINI_CONFIG["VCP_WINDOW"]
+    if len(atr_series) < win * 2:
         return False
 
-def check_sufficient_volume(volume_series):
-    """오늘 거래량이 최근 10일 중 최대 거래량인지 확인 (돌파 여부)"""
-    win = MINERVINI_CONFIG['VOL_LOOKBACK']
-    try:
-        if len(volume_series) >= win:
-            return volume_series.iloc[-1] == volume_series.iloc[-win:].max()
-        return False
-    except:
+    recent = atr_series.iloc[-win:]
+    prev = atr_series.iloc[-(win * 2) : -win]
+
+    return (recent.mean() < prev.mean()) and (recent.max() < prev.max())
+
+
+def check_value_contraction(volume_series, close_series):
+    """거래대금 수축: 최근 평균 거래대금이 이전 기간보다 충분히 감소"""
+    win = MINERVINI_CONFIG["VCP_WINDOW"]
+
+    if len(volume_series) < win * 2:
         return False
 
-def check_volatility_contraction(close_series, atr_series=None):
-    """변동성 수축(VCP) 확인: 최근 ATR/변동성이 이전보다 낮아졌는지 확인"""
-    win = MINERVINI_CONFIG['VCP_WINDOW']
-    try:
-        if atr_series is not None and len(atr_series) >= win * 2:
-            return atr_series.iloc[-win:].mean() < atr_series.iloc[-(win*2):-win].mean()
-        elif len(close_series) >= win * 2:
-            return close_series.iloc[-win:].std() < close_series.iloc[-(win*2):-win].std()
-        return False
-    except:
+    value = volume_series * close_series
+
+    recent_value = value.iloc[-win:].mean()
+    prev_value = value.iloc[-(win * 2) : -win].mean()
+
+    # 1) 거래대금 수축 강도
+    if recent_value > prev_value * 0.7:
         return False
 
-def check_volume_contraction(volume_series):
-    """거래량 수축 확인: 최근 거래량 평균이 이전보다 낮아졌는지 확인"""
-    win = MINERVINI_CONFIG['VCP_WINDOW']
-    try:
-        if len(volume_series) >= win * 2:
-            return volume_series.iloc[-win:].mean() < volume_series.iloc[-(win*2):-win].mean()
+    # 2) 가격 유지 조건
+    recent_price = close_series.iloc[-win:]
+    price_range = recent_price.max() - recent_price.min()
+
+    if price_range / recent_price.mean() > 0.15:
         return False
-    except:
-        return False
+
+    return True
+
 
 # ---------------------------------------------------------
-# 통합 필터 실행 엔진
+# 통합 실행 엔진
 # ---------------------------------------------------------
 
-def check_all_minervini_filters(code, date, data_dir='./data/'):
-    """
-    모든 미너비니 기술적 조건을 검사하여 매수 적격 여부를 반환합니다.
-    """
-    df = load_from_parquet(code, data_dir)
+
+def evaluate_minervini_from_df(
+    df: pd.DataFrame | None, date: pd.Timestamp
+) -> dict[str, object]:
+    result: dict[str, object] = {
+        "pass": False,
+        "reason": "unknown",
+        "price_data_ok": False,
+        "price_above_mas": False,
+        "ma_alignment": False,
+        "ma200_up": False,
+        "ma50_up": False,
+        "near_6m_high": False,
+        "ma150_up": False,
+        "volatility_contraction": False,
+        "value_contraction": False,
+        "contraction_ok": False,
+    }
+
     if df is None or df.empty:
-        return False
+        result["reason"] = "no_price_data"
+        return result
 
-    # 분석 시점(date)까지의 데이터로 제한
+    if date not in df.index:
+        result["reason"] = "missing_signal_date"
+        return result
+
+    result["price_data_ok"] = True
     df_slice = df.loc[:date]
-    if df_slice.empty or pd.isna(df_slice['MA200'].iloc[-1]):
-        return False
-    
-    # 필요한 지표 시리즈 추출
-    close, volume = df_slice['Close'], df_slice['Volume']
-    ma20, ma50 = df_slice['MA20'], df_slice['MA50']
-    ma150, ma200 = df_slice['MA150'], df_slice['MA200']
-    atr = df_slice.get('ATR_14')
+    if df_slice.empty:
+        result["reason"] = "empty_slice"
+        return result
 
-    # 모든 개별 조건 리스트
-    filters = [
-        check_price_above_mas(close.iloc[-1], ma50.iloc[-1], ma150.iloc[-1], ma200.iloc[-1]),
-        check_ma_alignment(ma50.iloc[-1], ma150.iloc[-1], ma200.iloc[-1]),
-        check_200ma_up(ma200),
-        check_50ma_up(ma50),
-        check_within_52w_high(close, MINERVINI_CONFIG['MAX_DIST_52W_HIGH']),
-        check_above_52w_low(close, MINERVINI_CONFIG['MIN_DIST_52W_LOW']),
-        check_price_above_10ma(close.iloc[-1], ma20.iloc[-1]),
-        check_150ma_up(ma150),
-        check_sufficient_volume(volume),
-        check_volatility_contraction(close, atr),
-        check_volume_contraction(volume)
+    if "MA200" not in df_slice.columns or pd.isna(df_slice["MA200"].iloc[-1]):
+        result["reason"] = "missing_ma200"
+        return result
+
+    c, v = df_slice["Close"], df_slice["Volume"]
+    m50, m150, m200 = (
+        df_slice["MA50"],
+        df_slice["MA150"],
+        df_slice["MA200"],
+    )
+    atr = df_slice.get("ATR_14")
+
+    result["price_above_mas"] = check_price_above_mas(
+        c.iloc[-1], m50.iloc[-1], m150.iloc[-1], m200.iloc[-1]
+    )
+    result["ma_alignment"] = check_ma_alignment(
+        m50.iloc[-1], m150.iloc[-1], m200.iloc[-1]
+    )
+    result["ma200_up"] = check_200ma_up(m200)
+    result["ma50_up"] = check_50ma_up(m50)
+    result["near_6m_high"] = check_near_6m_high(
+        c,
+        MINERVINI_CONFIG["MAX_DIST_6M_HIGH"],
+        MINERVINI_CONFIG["SIX_MONTH_WINDOW"],
+    )
+    result["ma150_up"] = check_150ma_up(m150)
+
+    vol_ok = False
+    if atr is not None:
+        vol_ok = check_volatility_contraction(c, atr)
+    val_ok = check_value_contraction(v, c)
+    result["volatility_contraction"] = vol_ok
+    result["value_contraction"] = val_ok
+    result["contraction_ok"] = bool(vol_ok or val_ok)
+
+    checks = [
+        "price_above_mas",
+        "ma_alignment",
+        "ma200_up",
+        "ma50_up",
+        "near_6m_high",
+        "ma150_up",
+        "contraction_ok",
     ]
+    failed = [key for key in checks if not bool(result[key])]
 
-    # 모든 조건이 충족(True)될 때만 True 반환
-    return all(filters)
+    if not failed:
+        result["pass"] = True
+        result["reason"] = "pass"
+    else:
+        result["reason"] = "|".join(failed)
+
+    return result
+
+
+def check_minervini_from_df(df: pd.DataFrame | None, date: pd.Timestamp) -> bool:
+    """메모리에 로드된 데이터프레임을 대상으로 모든 미너비니 필터 조건 검증"""
+    detail = evaluate_minervini_from_df(df, date)
+    return bool(detail.get("pass", False))
